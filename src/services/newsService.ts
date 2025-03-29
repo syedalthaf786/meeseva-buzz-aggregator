@@ -1,9 +1,9 @@
 
 import { NewsResponse, NewsCategory } from "@/types/news";
 
-// Using NewsData.io API which has better free access
-const API_KEY = "pub_37429adea03e3a5ef7ff8d2b00c1e1e78f2ce"; // Public API key for NewsData.io
-const BASE_URL = "https://newsdata.io/api/1";
+// Using MediaStack API
+const API_KEY = "a80b8e9a7baad037d5a4b8c438f658bf"; // Public API key for MediaStack
+const BASE_URL = "http://api.mediastack.com/v1";
 
 export async function fetchNews(
   params: {
@@ -17,32 +17,21 @@ export async function fetchNews(
 ): Promise<NewsResponse> {
   const { keywords, category, countries = "us", languages = "en", limit = 20, offset = 0 } = params;
   
-  // For NewsData.io, we use the news endpoint
-  let url = `${BASE_URL}/news?apikey=${API_KEY}&language=${languages}&country=${countries.split(',')[0]}&size=${limit}`;
+  // For MediaStack, we use the news endpoint
+  let url = `${BASE_URL}/news?access_key=${API_KEY}&languages=${languages}&countries=${countries.split(',')[0]}&limit=${limit}`;
   
-  // Add page parameter for pagination
-  const page = Math.floor(offset / limit) + 1;
-  if (page > 1) {
-    url += `&page=${page}`;
+  // Add offset parameter for pagination
+  if (offset > 0) {
+    url += `&offset=${offset}`;
   }
   
   if (keywords) {
-    url += `&q=${encodeURIComponent(keywords)}`;
+    url += `&keywords=${encodeURIComponent(keywords)}`;
   }
   
   if (category && category !== 'general') {
-    // Map our categories to NewsData.io categories
-    const categoryMap: Record<string, string> = {
-      business: "business",
-      entertainment: "entertainment",
-      health: "health",
-      science: "science",
-      sports: "sports",
-      technology: "technology",
-      general: "top"
-    };
-    
-    url += `&category=${categoryMap[category] || category}`;
+    // MediaStack uses 'general' as a category name, so we don't need to map it
+    url += `&categories=${category}`;
   }
   
   try {
@@ -52,26 +41,26 @@ export async function fetchNews(
       throw new Error(`News API Error: ${response.status}`);
     }
     
-    const newsDataResponse = await response.json();
+    const mediaStackResponse = await response.json();
     
-    // Transform the NewsData.io response format to match our app's expected format
+    // Transform the MediaStack response format to match our app's expected format
     const transformedResponse: NewsResponse = {
       pagination: {
         limit: limit,
         offset: offset,
-        count: newsDataResponse.results?.length || 0,
-        total: newsDataResponse.totalResults || 10000, // NewsData.io doesn't always provide total
+        count: mediaStackResponse.data?.length || 0,
+        total: mediaStackResponse.pagination?.total || 10000, // Default high number if not provided
       },
-      data: (newsDataResponse.results || []).map((article: any) => ({
+      data: (mediaStackResponse.data || []).map((article: any) => ({
         title: article.title || "No title",
-        description: article.description || article.content || "No description available",
-        url: article.link || article.url,
-        source: article.source_id || article.source || "Unknown source",
-        image: article.image_url || article.urlToImage || null,
-        category: category || "general",
-        language: languages,
-        country: countries.split(',')[0],
-        published_at: article.pubDate || article.published_at || new Date().toISOString(),
+        description: article.description || "No description available",
+        url: article.url,
+        source: article.source || "Unknown source",
+        image: article.image || null,
+        category: article.category || category || "general",
+        language: article.language || languages,
+        country: article.country || countries.split(',')[0],
+        published_at: article.published_at || new Date().toISOString(),
       })),
     };
     
