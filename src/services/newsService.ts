@@ -3,7 +3,7 @@ import { NewsResponse, NewsCategory } from "@/types/news";
 
 // Using MediaStack API
 const API_KEY = "a80b8e9a7baad037d5a4b8c438f658bf"; // Public API key for MediaStack
-const BASE_URL = "http://api.mediastack.com/v1";
+const BASE_URL = "https://api.mediastack.com/v1";
 
 export async function fetchNews(
   params: {
