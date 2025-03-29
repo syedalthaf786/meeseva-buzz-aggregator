@@ -1,9 +1,9 @@
 
 import { NewsResponse, NewsCategory } from "@/types/news";
 
-// Using Gnews API which has better CORS support
-const API_KEY = "a80b8e9a7baad037d5a4b8c438f658bf"; // Public API key for Gnews
-const BASE_URL = "https://gnews.io/api/v4";
+// Using NewsData.io API which has better free access
+const API_KEY = "pub_37429adea03e3a5ef7ff8d2b00c1e1e78f2ce"; // Public API key for NewsData.io
+const BASE_URL = "https://newsdata.io/api/1";
 
 export async function fetchNews(
   params: {
@@ -17,15 +17,21 @@ export async function fetchNews(
 ): Promise<NewsResponse> {
   const { keywords, category, countries = "us", languages = "en", limit = 20, offset = 0 } = params;
   
-  // For Gnews, we use the top-headlines endpoint
-  let url = `${BASE_URL}/top-headlines?apikey=${API_KEY}&lang=${languages}&country=${countries.split(',')[0]}&max=${limit}`;
+  // For NewsData.io, we use the news endpoint
+  let url = `${BASE_URL}/news?apikey=${API_KEY}&language=${languages}&country=${countries.split(',')[0]}&size=${limit}`;
+  
+  // Add page parameter for pagination
+  const page = Math.floor(offset / limit) + 1;
+  if (page > 1) {
+    url += `&page=${page}`;
+  }
   
   if (keywords) {
     url += `&q=${encodeURIComponent(keywords)}`;
   }
   
   if (category && category !== 'general') {
-    // Map our categories to Gnews categories if needed
+    // Map our categories to NewsData.io categories
     const categoryMap: Record<string, string> = {
       business: "business",
       entertainment: "entertainment",
@@ -33,10 +39,10 @@ export async function fetchNews(
       science: "science",
       sports: "sports",
       technology: "technology",
-      general: "general"
+      general: "top"
     };
     
-    url += `&topic=${categoryMap[category] || category}`;
+    url += `&category=${categoryMap[category] || category}`;
   }
   
   try {
@@ -46,26 +52,26 @@ export async function fetchNews(
       throw new Error(`News API Error: ${response.status}`);
     }
     
-    const gnewsResponse = await response.json();
+    const newsDataResponse = await response.json();
     
-    // Transform the Gnews response format to match our app's expected format
+    // Transform the NewsData.io response format to match our app's expected format
     const transformedResponse: NewsResponse = {
       pagination: {
         limit: limit,
         offset: offset,
-        count: gnewsResponse.articles?.length || 0,
-        total: gnewsResponse.totalArticles || gnewsResponse.articles?.length || 0,
+        count: newsDataResponse.results?.length || 0,
+        total: newsDataResponse.totalResults || 10000, // NewsData.io doesn't always provide total
       },
-      data: (gnewsResponse.articles || []).map((article: any) => ({
+      data: (newsDataResponse.results || []).map((article: any) => ({
         title: article.title || "No title",
-        description: article.description || "No description available",
-        url: article.url,
-        source: article.source?.name || "Unknown source",
-        image: article.image,
+        description: article.description || article.content || "No description available",
+        url: article.link || article.url,
+        source: article.source_id || article.source || "Unknown source",
+        image: article.image_url || article.urlToImage || null,
         category: category || "general",
         language: languages,
         country: countries.split(',')[0],
-        published_at: article.publishedAt,
+        published_at: article.pubDate || article.published_at || new Date().toISOString(),
       })),
     };
     
